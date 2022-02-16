@@ -1,1 +1,1 @@
-# PolyaUrnSimulator
+# PolyaUrnSimulator.jl
