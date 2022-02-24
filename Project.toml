@@ -1,7 +1,7 @@
 name = "PolyaUrnSimulator"
 uuid = "4bcabfa6-eebd-487a-8b4a-99bb3a891d86"
 authors = ["SUDA Mikihiro <s@sudame.net> and contributors"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
