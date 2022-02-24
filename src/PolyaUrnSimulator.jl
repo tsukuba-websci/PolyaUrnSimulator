@@ -54,7 +54,8 @@ function interact!(
   node_buffers::Vector{Vector{Int}},
   node_urn_sizes::Vector{Int},
   total_urn_size::Int,
-  history::Vector{Tuple{Int,Int}},
+  history::Vector{Tuple{Int,Int}};
+  async_strategy::Bool = false
 )
   ##### Model Rule (2) >>> #####
 
@@ -116,7 +117,9 @@ function interact!(
 
   # メモリバッファを更新する
   strategy!(nu_plus_one, node_buffers[caller], node_urns[caller], called)
-  strategy!(nu_plus_one, node_buffers[called], node_urns[called], caller)
+  if !async_strategy # async_strategyモードのときは、呼び出し側のノードのみがメモリバッファを更新する
+    strategy!(nu_plus_one, node_buffers[called], node_urns[called], caller)
+  end
   ##### <<< Model Rule (4) #####
 end
 
@@ -124,7 +127,7 @@ end
 ## returns
 `(history, node_urns, node_buffers)`
 """
-function run_simulation(rho::Int, nu::Int, strategy!::Function, steps::Int; show_progress::Bool = true)
+function run_simulation(rho::Int, nu::Int, strategy!::Function, steps::Int; async_strategy::Bool = false, show_progress::Bool = true)
 
   nu_plus_one = nu + 1
 
@@ -172,7 +175,7 @@ function run_simulation(rho::Int, nu::Int, strategy!::Function, steps::Int; show
   p = Progress(length(1:steps); showspeed = true, enabled = show_progress)
 
   @inbounds @simd for _ = 1:steps
-    interact!(rho, nu_plus_one, strategy!, node_urns, node_buffers, node_urn_sizes, total_urn_size, history)
+    interact!(rho, nu_plus_one, strategy!, node_urns, node_buffers, node_urn_sizes, total_urn_size, history; async_strategy = async_strategy)
     ProgressMeter.next!(p)
   end
 
@@ -191,6 +194,7 @@ function run_simulation(
   node_urns::Vector{Vector{Int}},
   node_buffers::Vector{Vector{Int}},
   steps::Int;
+  async_strategy::Bool = false,
   show_progress::Bool = true
 )
   node_urn_sizes::Vector{Int} = map(length, node_urns)
@@ -201,7 +205,7 @@ function run_simulation(
   p = Progress(steps; showspeed = true, enabled = show_progress)
 
   for _ = 1:steps
-    interact!(rho, nu_plus_one, strategy!, node_urns, node_buffers, node_urn_sizes, total_urn_size, history)
+    interact!(rho, nu_plus_one, strategy!, node_urns, node_buffers, node_urn_sizes, total_urn_size, history; async_strategy = async_strategy)
     next!(p)
   end
 
