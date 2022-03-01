@@ -16,11 +16,12 @@ function SSW!(_::Int, buffer::Vector{Int}, urn::Vector{Int}, exchanged::Int)
   end
 end
 
-function WSW!(buffer_size::Int, _::Vector{Int}, urn::Vector{Int}, exchanged::Int)
+function WSW!(buffer_size::Int, buffer::Vector{Int}, urn::Vector{Int}, exchanged::Int)
   set = Set{Int}()
   while length(set) == buffer_size
     push!(set, rand(urn))
   end
+  buffer .= collect(set)
 end
 
 """
