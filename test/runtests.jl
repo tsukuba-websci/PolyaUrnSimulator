@@ -7,26 +7,6 @@ function return_type_test(result)
     @test typeof(result[3]) == Vector{Vector{Int}}
 end
 
-@testset "SSWの通常モードでシミュレーションを実行" begin
-    result = run_simulation(5, 5, SSW!, 100)
-
-    # 返り値の型があっているかチェック
-    return_type_test(result)
-
-    # 履歴の長さがあっているかチェック
-    @test length(result[1]) == 100
-end
-
-@testset "WSWの通常モードでシミュレーションを実行" begin
-    result = run_simulation(5, 5, WSW!, 100)
-
-    # 返り値の型があっているかチェック
-    return_type_test(result)
-
-    # 履歴の長さがあっているかチェック
-    @test length(result[1]) == 100
-end
-
 @testset "Environment構造体の初期化" begin
     @testset "Environmentを初期化できる" begin
         env = Environment()
@@ -76,6 +56,10 @@ end
         @test env.buffers == [[3, 4], [5, 6], [], [], [], []]
         @test env.urn_sizes == [3, 3, 0, 0, 0, 0]
         @test env.total_urn_size == 6
+
+        @test env.rhos == [1, 1, 1, 1, 1, 1]
+        @test env.nus == [1, 1, 1, 1, 1, 1]
+        @test env.nu_plus_ones == [2, 2, 2, 2, 2, 2]
     end
 
     @testset "初期エージェントが2体ではないときは例外をスローする" begin
@@ -84,4 +68,26 @@ end
         init_agents = [Agent(1, 1, strategy)]
         @test_throws ArgumentError init!(env, init_agents)
     end
+end
+
+@testset "ステップ関数で1ステップ進める" begin
+    strategy = ssw_strategy!
+    env = Environment()
+    init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
+    init!(env, init_agents)
+
+    step!(env)
+end
+
+@testset "良い感じの履歴が生成される" begin
+    strategy = ssw_strategy!
+    env = Environment()
+    init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
+    init!(env, init_agents)
+
+    for _ in 1:10000
+        step!(env)
+    end
+
+    @test length(env.history) == 10000
 end

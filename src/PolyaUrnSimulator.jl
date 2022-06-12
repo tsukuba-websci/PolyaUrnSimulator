@@ -3,7 +3,8 @@ module PolyaUrnSimulator
 using ProgressMeter
 using StatsBase
 
-export SSW!, WSW!, run_simulation, Environment, Agent, init!
+export SSW!,
+    WSW!, run_simulation, Environment, Agent, init!, step!, ssw_strategy!, wsw_strategy!
 
 HistoryRecord = Tuple{Int,Int}
 
@@ -17,6 +18,7 @@ mutable struct Environment
     # Agent
     rhos::Vector{Int}
     nus::Vector{Int}
+    nu_plus_ones::Vector{Int}
     strategies::Vector{Function}
 
     # 履歴
@@ -25,28 +27,27 @@ mutable struct Environment
     # 環境の振る舞い
     get_caller::Function
     who_update_buffer
+end
 
-    function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
-        begin
-            if !(who_update_buffer ∈ [:both, :caller, :called])
-                throw(
-                    ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです")
-                )
-            end
-
-            new(
-                [], # agent_urns
-                [], # agent_buffers
-                [], # agent_urn_sizes
-                0,  # total_urn_size
-                [], # agent_rhos
-                [], # agent_nus
-                [], # agent_strategies
-                [], # history
-                get_caller,
-                who_update_buffer,
-            )
+function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
+    begin
+        if !(who_update_buffer ∈ [:both, :caller, :called])
+            throw(ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです"))
         end
+
+        Environment(
+            [], # urns
+            [], # buffers
+            [], # urn_sizes
+            0,  # urn_size
+            [], # rhos
+            [], # nus
+            [], # nu_plus_ones
+            [], # strategies
+            [], # history
+            get_caller,
+            who_update_buffer,
+        )
     end
 end
 
@@ -73,6 +74,7 @@ function init!(env::Environment, init_agents::Vector{Agent})
 
     env.rhos = map(a -> a.rho, init_agents)
     env.nus = map(a -> a.nu, init_agents)
+    env.nu_plus_ones = map(a -> a.nu_plus_one, init_agents)
     env.strategies = map(a -> a.strategy, init_agents)
 
     for (aid, agent) in enumerate(init_agents)
@@ -80,6 +82,11 @@ function init!(env::Environment, init_agents::Vector{Agent})
         append!(env.urns, fill(Int[], agent.nu_plus_one))
         append!(env.urn_sizes, zeros(agent.nu_plus_one))
         append!(env.buffers, fill(Int[], agent.nu_plus_one))
+        # TODO: 初期値以外の値を持ったエージェントを追加できるようにする
+        append!(env.rhos, fill(env.rhos[1], agent.nu_plus_one))
+        append!(env.nus, fill(env.nus[1], agent.nu_plus_one))
+        append!(env.nu_plus_ones, fill(env.nu_plus_ones[1], agent.nu_plus_one))
+        append!(env.strategies, fill(env.strategies[1], agent.nu_plus_one))
 
         # 初期エージェントが初期状態でバッファに持っているエージェントを設定
         init_potential_agent_ids = collect((length(env.urns) - agent.nu):length(env.urns))
@@ -88,6 +95,73 @@ function init!(env::Environment, init_agents::Vector{Agent})
         env.urn_sizes[aid] += length(init_potential_agent_ids)
         env.total_urn_size += length(init_potential_agent_ids)
     end
+end
+
+function step!(env::Environment)
+    ##### Model Rule (2) >>> #####
+    "アクションを起こす起点のエージェント"
+    caller::Int = env.get_caller(env)
+
+    "アクションを起こされる終点のエージェント"
+    called::Int = get_called(env, caller)
+
+    append!(env.history, [(caller, called)])
+    ##### <<< Model Rule (2) #####
+
+    ##### Model Rule (5) >>> #####
+    # もしcalledエージェントが今まで呼ばれたことの無いエージェント(=壺が空のエージェント)である場合
+    if env.urn_sizes[called] == 0
+        # nu_plus_one個のエージェントを生成
+        for _ in 1:env.nu_plus_ones[called]
+            append!(env.urns, Vector{Int}[Int[]])
+            append!(env.buffers, Vector{Int}[Int[]])
+            append!(env.urn_sizes, Int[0])
+
+            # TODO: 初期値以外の値を持ったエージェントを追加できるようにする
+            append!(env.rhos, [env.rhos[1]])
+            append!(env.nus, [env.nus[1]])
+            append!(env.nu_plus_ones, [env.nu_plus_ones[1]])
+            append!(env.strategies, [env.strategies[1]])
+        end
+
+        # 生成したエージェントをcalledエージェントの壺とメモリバッファに追加
+        generated_agents = collect((length(env.urns) - env.nus[called]):length(env.urns))
+        append!(env.urns[called], generated_agents)
+        append!(env.buffers[called], generated_agents)
+        env.urn_sizes[called] += length(generated_agents)
+        env.total_urn_size += length(generated_agents)
+    end
+    ##### <<< Model Rule (5) #####
+
+    ##### Model Rule (3) >>> #####
+    append!(env.urns[caller], fill(called, env.rhos[caller]))
+    env.urn_sizes[caller] += env.rhos[caller]
+    env.total_urn_size += env.rhos[caller]
+
+    append!(env.urns[called], fill(caller, env.rhos[called]))
+    env.urn_sizes[called] += env.rhos[called]
+    env.total_urn_size += env.rhos[called]
+    ##### <<< Model Rule (3) #####
+
+    ##### Model Rule (4) >>> #####
+    # メモリバッファを交換する
+    append!(env.urns[caller], env.buffers[called])
+    env.urn_sizes[caller] += env.nu_plus_ones[called]
+    env.total_urn_size += env.nu_plus_ones[called]
+
+    append!(env.urns[called], env.buffers[caller])
+    env.urn_sizes[called] += env.nu_plus_ones[caller]
+    env.total_urn_size += env.nu_plus_ones[caller]
+
+    # メモリバッファを更新する
+    if env.who_update_buffer ∈ [:caller, :both]
+        env.strategies[caller](env, caller)
+    end
+    if env.who_update_buffer ∈ [:called, :both]
+        env.strategies[called](env, called)
+    end
+    ##### <<< Model Rule (4) #####
+
 end
 
 function poppush!(v::Vector{T}, e::T) where {T}
@@ -101,6 +175,14 @@ function SSW!(_::Int, buffer::Vector{Int}, urn::Vector{Int}, exchanged::Int)
     end
 end
 
+function ssw_strategy!(env::Environment, aid::Int)
+    _last::Tuple{Int,Int} = last(env.history)
+    exchanged = _last[1] == aid ? _last[2] : _last[1]
+    if !(exchanged in env.buffers[aid])
+        poppush!(env.buffers[aid], exchanged)
+    end
+end
+
 function WSW!(buffer_size::Int, buffer::Vector{Int}, urn::Vector{Int}, exchanged::Int)
     set = Set{Int}()
     while length(set) != buffer_size
@@ -109,13 +191,18 @@ function WSW!(buffer_size::Int, buffer::Vector{Int}, urn::Vector{Int}, exchanged
     buffer .= collect(set)
 end
 
+function wsw_strategy!(env::Environment, aid::Int)
+    env.buffers[aid] .= sample(env.urns[aid], env.nu_plus_ones[aid]; replace=false)
+end
+
 """
 アクションの呼び出され側ノードを選ぶ
 アクションの呼び出し側ノードの壺内からランダムに1個選び出す
 """
-function get_called(caller_node_urns::Vector{Int}, caller::Int)::Int
+function get_called(env::Environment, caller::Int)::Int
+    caller_urns::Vector{Int} = env.urns[caller]
     while true
-        called = rand(caller_node_urns)
+        called = rand(caller_urns)
         if called != caller
             return called
         end
@@ -127,9 +214,9 @@ end
 アクションの呼び出し側ノードを選ぶ
 各々のノードが持つ壺の重さに比例する確率でノードを選ぶ
 """
-function get_caller(node_urn_sizes::Vector{Int})::Int
+function get_caller(env::Environment)::Int
     # 壺のサイズに基づいてインタラクションの起点ノードを選択
-    return sample(Weights(node_urn_sizes))
+    return sample(Weights(env.urn_sizes))
 end
 
 function interact!(
