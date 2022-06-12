@@ -1,0 +1,15 @@
+{
+  "julia.environmentPath": "${workspaceFolder}",
+  "[julia]": {
+    "editor.quickSuggestions": {
+      "other": "on",
+      "comments": "on",
+      "strings": "on"
+    },
+    "editor.wordSeparators": "`~#$%^&*()-=+[{]}\\|;:'\",.<>/?",
+    "editor.tabSize": 4,
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "julialang.language-julia"
+  }
+}
