@@ -3,7 +3,60 @@ module PolyaUrnSimulator
 using ProgressMeter
 using StatsBase
 
-export SSW!, WSW!, run_simulation
+export SSW!, WSW!, run_simulation, Environment, Agent
+
+HistoryRecord = Tuple{Int,Int}
+
+mutable struct Environment
+    # 環境の状態
+    agent_urns::Vector{Vector{Int}}
+    agent_buffers::Vector{Vector{Int}}
+    agent_urn_sizes::Vector{Int}
+    total_urn_size::Int
+
+    # Agent
+    agent_rhos::Vector{Int}
+    agent_nus::Vector{Int}
+    agent_strategies::Vector{Int}
+
+    # 履歴
+    history::Vector{HistoryRecord}
+
+    # 環境の振る舞い
+    get_caller::Function
+    who_update_buffer
+
+    function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
+        begin
+            if !(who_update_buffer ∈ [:both, :caller, :called])
+                throw(
+                    ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです")
+                )
+            end
+
+            new(
+                [], # agent_urns
+                [], # agent_buffers
+                [], # agent_urn_sizes
+                0,  # total_urn_size
+                [], # agent_rhos
+                [], # agent_nus
+                [], # agent_strategies
+                [], # history
+                get_caller,
+                who_update_buffer,
+            )
+        end
+    end
+end
+
+struct Agent
+    rho::Int
+    nu::Int
+    strategy::Function
+end
+
+function init!(env) end
 
 function poppush!(v::Vector{T}, e::T) where {T}
     pop!(v)
@@ -57,6 +110,7 @@ function interact!(
     total_urn_size::Int,
     history::Vector{Tuple{Int,Int}};
     async_strategy::Bool=false,
+    get_caller::Function,
 )
     ##### Model Rule (2) >>> #####
 
@@ -132,6 +186,7 @@ function run_simulation(
     nu::Int,
     strategy!::Function,
     steps::Int;
+    get_caller::Function=get_caller,
     async_strategy::Bool=false,
     show_progress::Bool=true,
 )
@@ -190,6 +245,7 @@ function run_simulation(
             total_urn_size,
             history;
             async_strategy=async_strategy,
+            get_caller=get_caller,
         )
         ProgressMeter.next!(p)
     end
