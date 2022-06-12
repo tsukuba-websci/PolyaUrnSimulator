@@ -3,21 +3,21 @@ module PolyaUrnSimulator
 using ProgressMeter
 using StatsBase
 
-export SSW!, WSW!, run_simulation, Environment, Agent
+export SSW!, WSW!, run_simulation, Environment, Agent, init!
 
 HistoryRecord = Tuple{Int,Int}
 
 mutable struct Environment
     # 環境の状態
-    agent_urns::Vector{Vector{Int}}
-    agent_buffers::Vector{Vector{Int}}
-    agent_urn_sizes::Vector{Int}
+    urns::Vector{Vector{Int}}
+    buffers::Vector{Vector{Int}}
+    urn_sizes::Vector{Int}
     total_urn_size::Int
 
     # Agent
-    agent_rhos::Vector{Int}
-    agent_nus::Vector{Int}
-    agent_strategies::Vector{Int}
+    rhos::Vector{Int}
+    nus::Vector{Int}
+    strategies::Vector{Function}
 
     # 履歴
     history::Vector{HistoryRecord}
@@ -54,9 +54,41 @@ struct Agent
     rho::Int
     nu::Int
     strategy::Function
+    nu_plus_one::Int
+
+    Agent(rho::Int, nu::Int, strategy::Function) = begin
+        new(rho, nu, strategy, nu + 1)
+    end
 end
 
-function init!(env) end
+function init!(env::Environment, init_agents::Vector{Agent})
+    if length(init_agents) != 2
+        throw(ArgumentError("初期エージェントは必ず2体です"))
+    end
+
+    env.urns = [[2], [1]]
+    env.buffers = [[], []]
+    env.urn_sizes = [1, 1]
+    env.total_urn_size = 2
+
+    env.rhos = map(a -> a.rho, init_agents)
+    env.nus = map(a -> a.nu, init_agents)
+    env.strategies = map(a -> a.strategy, init_agents)
+
+    for (aid, agent) in enumerate(init_agents)
+        # 初期エージェントが初期状態でバッファに持っているエージェントを作成
+        append!(env.urns, fill(Int[], agent.nu_plus_one))
+        append!(env.urn_sizes, zeros(agent.nu_plus_one))
+        append!(env.buffers, fill(Int[], agent.nu_plus_one))
+
+        # 初期エージェントが初期状態でバッファに持っているエージェントを設定
+        init_potential_agent_ids = collect((length(env.urns) - agent.nu):length(env.urns))
+        append!(env.urns[aid], init_potential_agent_ids)
+        append!(env.buffers[aid], init_potential_agent_ids)
+        env.urn_sizes[aid] += length(init_potential_agent_ids)
+        env.total_urn_size += length(init_potential_agent_ids)
+    end
+end
 
 function poppush!(v::Vector{T}, e::T) where {T}
     pop!(v)

@@ -45,6 +45,43 @@ end
 end
 
 @testset "Agent構造体の初期化" begin
-    ssw_strategy = env -> [1, 2, 3]
-    agent = Agent(5, 5, ssw_strategy)
+    strategy = env -> [1, 2, 3]
+    agent = Agent(5, 5, strategy)
+
+    @test agent.rho == 5
+    @test agent.nu == 5
+    @test agent.nu_plus_one == 6
+end
+
+@testset "実験環境を準備する" begin
+    @testset "初期状態に到達できる(1)" begin
+        strategy = env -> [1, 2, 3]
+        env = Environment()
+        init_agents = [Agent(2, 2, strategy), Agent(2, 2, strategy)]
+        init!(env, init_agents)
+
+        @test env.urns == [[2, 3, 4, 5], [1, 6, 7, 8], [], [], [], [], [], []]
+        @test env.buffers == [[3, 4, 5], [6, 7, 8], [], [], [], [], [], []]
+        @test env.urn_sizes == [4, 4, 0, 0, 0, 0, 0, 0]
+        @test env.total_urn_size == 8
+    end
+
+    @testset "初期状態に到達できる(2)" begin
+        strategy = env -> [1, 2, 3]
+        env = Environment()
+        init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
+        init!(env, init_agents)
+
+        @test env.urns == [[2, 3, 4], [1, 5, 6], [], [], [], []]
+        @test env.buffers == [[3, 4], [5, 6], [], [], [], []]
+        @test env.urn_sizes == [3, 3, 0, 0, 0, 0]
+        @test env.total_urn_size == 6
+    end
+
+    @testset "初期エージェントが2体ではないときは例外をスローする" begin
+        strategy = env -> [1, 2, 3]
+        env = Environment()
+        init_agents = [Agent(1, 1, strategy)]
+        @test_throws ArgumentError init!(env, init_agents)
+    end
 end
