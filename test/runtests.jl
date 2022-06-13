@@ -104,3 +104,33 @@ end
 
     @test length(env.history) == 10000
 end
+
+@testset "get_callerを指定したときの振る舞いが正しい" begin
+    @testset "すべての起点が1になる場合" begin
+        strategy = ssw_strategy!
+        get_caller = env::Environment -> 1
+        env = Environment(; get_caller)
+        init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
+        init!(env, init_agents)
+
+        for _ in 1:10000
+            step!(env)
+        end
+
+        @test all(h -> h[1] == 1, env.history)
+    end
+
+    @testset "すべての起点が2になる場合" begin
+        strategy = ssw_strategy!
+        get_caller = env::Environment -> 2
+        env = Environment(; get_caller)
+        init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
+        init!(env, init_agents)
+
+        for _ in 1:10000
+            step!(env)
+        end
+
+        @test all(h -> h[1] == 2, env.history)
+    end
+end
