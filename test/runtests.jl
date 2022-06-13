@@ -79,10 +79,23 @@ end
     step!(env)
 end
 
-@testset "良い感じの履歴が生成される" begin
+@testset "良い感じの履歴が生成される (ssw)" begin
     strategy = ssw_strategy!
     env = Environment()
     init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
+    init!(env, init_agents)
+
+    for _ in 1:10000
+        step!(env)
+    end
+
+    @test length(env.history) == 10000
+end
+
+@testset "良い感じの履歴が生成される (wsw)" begin
+    strategy = wsw_strategy!
+    env = Environment()
+    init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
     init!(env, init_agents)
 
     for _ in 1:10000
