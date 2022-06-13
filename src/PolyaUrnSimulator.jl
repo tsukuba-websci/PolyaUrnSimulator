@@ -115,7 +115,7 @@ function init!(env::Environment, init_agents::Vector{Agent})
         append!(env.rhos, noreffill(env.rhos[1], agent.nu_plus_one))
         append!(env.nus, noreffill(env.nus[1], agent.nu_plus_one))
         append!(env.nu_plus_ones, noreffill(env.nu_plus_ones[1], agent.nu_plus_one))
-        append!(env.strategies, noreffill(env.strategies[1], agent.nu_plus_one))
+        append!(env.strategies, fill(env.strategies[1], agent.nu_plus_one))
 
         # 初期エージェントが初期状態でバッファに持っているエージェントを設定
         init_potential_agent_ids = collect((length(env.urns) - agent.nu):length(env.urns))
@@ -155,7 +155,7 @@ function step!(env::Environment)
         append!(env.rhos, noreffill(env.rhos[1], generate_agent_count))
         append!(env.nus, noreffill(env.nus[1], generate_agent_count))
         append!(env.nu_plus_ones, noreffill(env.nu_plus_ones[1], generate_agent_count))
-        append!(env.strategies, noreffill(env.strategies[1], generate_agent_count))
+        append!(env.strategies, fill(env.strategies[1], generate_agent_count))
 
         # 生成したエージェントをcalledエージェントの壺とメモリバッファに追加
         generated_agents = collect((length(env.urns) - env.nus[called]):length(env.urns))
