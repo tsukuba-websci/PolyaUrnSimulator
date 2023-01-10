@@ -1,136 +1,66 @@
 using PolyaUrnSimulator
 using Test
 
-function return_type_test(result)
-    @test typeof(result[1]) == Vector{Tuple{Int,Int}}
-    @test typeof(result[2]) == Vector{Vector{Int}}
-    @test typeof(result[3]) == Vector{Vector{Int}}
+@testset "初期状態に到達できる" begin
+    gene = Gene(1, 1, 0.1, 0.1, 0.1)
+    env = Environment(gene)
+    init!(env)
+
+    @test length(env.urns) == 6
+    @test env.urns[1] == [2, 3, 4]
+    @test env.urns[2] == [1, 5, 6]
+    @test env.urns[3] == []
 end
 
-@testset "Environment構造体の初期化" begin
-    @testset "Environmentを初期化できる" begin
-        env = Environment()
-        @test typeof(env) <: Environment
-    end
+@testset "1回相互作用できる" begin
+    @testset "最近性のみを見る場合" begin
+        gene = Gene(
+            1, # rho
+            1, # nu
+            1, # recentness
+            0, # activeness
+            0, # degree
+        )
+        env = Environment(gene)
+        init!(env)
 
-    @testset "Environmentにget_callerを渡せる" begin
-        _get_caller = env -> 1
-        env = Environment(; get_caller=_get_caller)
-        @test typeof(env) <: Environment
-    end
+        interact!(env, 1, 2)
 
-    @testset "who_update_bufferに予期しない値を入れると例外をスローする" begin
-        @test_throws ArgumentError Environment(who_update_buffer=:boo)
-    end
-end
-
-@testset "Agent構造体の初期化" begin
-    strategy = env -> [1, 2, 3]
-    agent = Agent(5, 5, strategy)
-
-    @test agent.rho == 5
-    @test agent.nu == 5
-    @test agent.nu_plus_one == 6
-end
-
-@testset "実験環境を準備する" begin
-    @testset "初期状態に到達できる(1)" begin
-        strategy = env -> [1, 2, 3]
-        env = Environment()
-        init_agents = [Agent(2, 2, strategy), Agent(2, 2, strategy)]
-        init!(env, init_agents)
-
-        @test env.urns == [[2, 3, 4, 5], [1, 6, 7, 8], [], [], [], [], [], []]
-        @test env.buffers == [[3, 4, 5], [6, 7, 8], [], [], [], [], [], []]
-        @test env.urn_sizes == [4, 4, 0, 0, 0, 0, 0, 0]
-        @test env.total_urn_size == 8
-    end
-
-    @testset "初期状態に到達できる(2)" begin
-        strategy = env -> [1, 2, 3]
-        env = Environment()
-        init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
-        init!(env, init_agents)
-
-        @test env.urns == [[2, 3, 4], [1, 5, 6], [], [], [], []]
-        @test env.buffers == [[3, 4], [5, 6], [], [], [], []]
-        @test env.urn_sizes == [3, 3, 0, 0, 0, 0]
-        @test env.total_urn_size == 6
-
-        @test env.rhos == [1, 1, 1, 1, 1, 1]
-        @test env.nus == [1, 1, 1, 1, 1, 1]
-        @test env.nu_plus_ones == [2, 2, 2, 2, 2, 2]
-    end
-
-    @testset "初期エージェントが2体ではないときは例外をスローする" begin
-        strategy = env -> [1, 2, 3]
-        env = Environment()
-        init_agents = [Agent(1, 1, strategy)]
-        @test_throws ArgumentError init!(env, init_agents)
+        @test env.buffers[1] == [2, 6]
+        @test env.buffers[2] == [1, 4]
     end
 end
 
-@testset "ステップ関数で1ステップ進める" begin
-    strategy = ssw_strategy!
-    env = Environment()
-    init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
-    init!(env, init_agents)
+@testset "100回相互作用できる" begin
+    @testset "最近性のみを見る場合" begin
+        gene = Gene(
+            1, # rho
+            1, # nu
+            1, # recentness
+            0, # activeness
+            0, # degree
+        )
+        env = Environment(gene)
+        init!(env)
 
-    step!(env)
-end
-
-@testset "良い感じの履歴が生成される (ssw)" begin
-    strategy = ssw_strategy!
-    env = Environment()
-    init_agents = [Agent(1, 1, strategy), Agent(1, 1, strategy)]
-    init!(env, init_agents)
-
-    for _ in 1:10000
-        step!(env)
-    end
-
-    @test length(env.history) == 10000
-end
-
-@testset "良い感じの履歴が生成される (wsw)" begin
-    strategy = wsw_strategy!
-    env = Environment()
-    init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
-    init!(env, init_agents)
-
-    for _ in 1:10000
-        step!(env)
-    end
-
-    @test length(env.history) == 10000
-end
-
-@testset "get_callerを指定したときの振る舞いが正しい" begin
-    @testset "すべての起点が1になる場合" begin
-        strategy = ssw_strategy!
-        get_caller = env::Environment -> 1
-        env = Environment(; get_caller)
-        init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
-        init!(env, init_agents)
-
-        for _ in 1:10000
+        for _ in 1:100
             step!(env)
         end
-
-        @test all(h -> h[1] == 1, env.history)
     end
+end
 
-    @testset "すべての起点が2になる場合" begin
-        strategy = ssw_strategy!
-        get_caller = env::Environment -> 2
-        env = Environment(; get_caller)
-        init_agents = [Agent(5, 5, strategy), Agent(5, 5, strategy)]
-        init!(env, init_agents)
+@testset "10000回相互作用できる" begin
+    gene = Gene(
+        1, # rho
+        1, # nu
+        1, # recentness
+        0, # activeness
+        0, # degree
+    )
+    env = Environment(gene)
+    init!(env)
 
-        for _ in 1:10000
-            step!(env)
-        end
-
-        @test all(h -> h[1] == 2, env.history)
+    @time for _ in 1:10000
+        step!(env)
     end
 end

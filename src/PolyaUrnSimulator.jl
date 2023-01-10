@@ -3,7 +3,7 @@ module PolyaUrnSimulator
 using ProgressMeter
 using StatsBase
 
-export Environment, Gene, init!, step!, ssw_strategy!, wsw_strategy!
+export Environment, Gene, init!, step!, interact!
 
 HistoryRecord = Tuple{Int,Int}
 
@@ -63,15 +63,19 @@ function init!(env::Environment)
     env.buffers = [[], []]
     env.urn_sizes = [1, 1]
     env.total_urn_size = 2
+    env.histories = [[], []]
 
-    for aid in enumerate([1, 2])
+    for aid in [1, 2]
         # 初期エージェントが初期状態でバッファに持っているエージェントを作成
         append!(env.urns, noreffill(Int[], env.gene.nu + 1))
         append!(env.urn_sizes, zeros(env.gene.nu + 1))
         append!(env.buffers, noreffill(Int[], env.gene.nu + 1))
+        append!(env.histories, noreffill(Int[], env.gene.nu + 1))
 
         # 初期エージェントが初期状態でバッファに持っているエージェントを設定
-        init_potential_agent_ids = collect((length(env.urns) - agent.nu):length(env.urns))
+        init_potential_agent_ids = collect(
+            (length(env.urns) - env.gene.nu):length(env.urns)
+        )
         append!(env.urns[aid], init_potential_agent_ids)
         append!(env.buffers[aid], init_potential_agent_ids)
         env.urn_sizes[aid] += length(init_potential_agent_ids)
@@ -92,6 +96,10 @@ function step!(env::Environment)
     "アクションを起こされる終点のエージェント"
     called::Int = get_called(env, caller)
 
+    interact!(env, caller, called)
+end
+
+function interact!(env::Environment, caller::Int, called::Int)
     append!(env.history, [(caller, called)])
     append!(env.histories[caller], [called])
     append!(env.histories[called], [caller])
@@ -105,39 +113,40 @@ function step!(env::Environment)
         generate_agent_count = env.gene.nu + 1
         append!(env.urns, noreffill(Int[], generate_agent_count))
         append!(env.buffers, noreffill(Int[], generate_agent_count))
+        append!(env.histories, noreffill(Int[], generate_agent_count))
         append!(env.urn_sizes, noreffill(0, generate_agent_count))
 
         # 生成したエージェントをcalledエージェントの壺とメモリバッファに追加
-        generated_agents = collect((length(env.urns) - env.nus[called]):length(env.urns))
-        append!(env.urns[called], generated_agents)
-        append!(env.buffers[called], generated_agents)
+        generated_agents = collect((length(env.urns) - env.gene.nu):length(env.urns))
+        append!((@views env.urns[called]), generated_agents)
+        append!((@views env.buffers[called]), generated_agents)
         env.urn_sizes[called] += length(generated_agents)
         env.total_urn_size += length(generated_agents)
     end
     ##### <<< Model Rule (5) #####
 
     ##### Model Rule (3) >>> #####
-    append!(env.urns[caller], noreffill(called, env.gene.rho))
+    append!((@views env.urns[caller]), noreffill(called, env.gene.rho))
     env.urn_sizes[caller] += env.gene.rho
     env.total_urn_size += env.gene.rho
 
-    append!(env.urns[called], noreffill(caller, env.gene.rho))
+    append!((@views env.urns[called]), noreffill(caller, env.gene.rho))
     env.urn_sizes[called] += env.gene.rho
     env.total_urn_size += env.gene.rho
     ##### <<< Model Rule (3) #####
 
     ##### Model Rule (4) >>> #####
     # メモリバッファを交換する
-    append!(env.urns[caller], env.buffers[called])
+    append!((@views env.urns[caller]), (@views env.buffers[called]))
     env.urn_sizes[caller] += env.gene.nu + 1
     env.total_urn_size += env.gene.nu + 1
 
-    append!(env.urns[called], env.buffers[caller])
+    append!((@views env.urns[called]), (@views env.buffers[caller]))
     env.urn_sizes[called] += env.gene.nu + 1
     env.total_urn_size += env.gene.nu + 1
 
     env.buffers[caller] = get_recommendees(env, caller)
-    env.buffers[callee] = get_recommendees(env, called)
+    env.buffers[called] = get_recommendees(env, called)
     ##### <<< Model Rule (4) #####
 
 end
@@ -148,13 +157,17 @@ function poppush!(v::Vector{T}, e::T) where {T}
 end
 
 function get_recommendees(env::Environment, aid::Int)
-    candidates = env.urns[aid] |> unique
-    history = env.histories[aid]
+    candidates = (@views env.urns[aid]) |> unique
+    history = @views env.histories[aid]
 
-    recentnesses = sort(candidates; by=x -> findlast(history == x)) * env.gene.recentness
+    # println(history)
 
-    priorities = sort(recentnesses)
-    return priorities[1:(env.gene.nu + 1)]
+    recentnesses =
+        denserank(candidates; by=x -> findlast([candidates; history] .== x), rev=true) *
+        env.gene.recentness
+
+    perm = sortperm(recentnesses)
+    return candidates[perm][1:(env.gene.nu + 1)]
 end
 
 """
