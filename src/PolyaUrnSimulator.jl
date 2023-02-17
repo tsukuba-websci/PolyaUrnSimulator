@@ -177,21 +177,23 @@ function step!(env::Environment)
     ##### <<< Model Rule (3) #####
 
     ##### Model Rule (4) >>> #####
-    # メモリバッファを交換する
-    append!(env.urns[caller], env.buffers[called])
-    env.urn_sizes[caller] += env.nu_plus_ones[called]
-    env.total_urn_size += env.nu_plus_ones[called]
+    if (caller, called) ∈ env.history || (called, caller) ∈ env.history
+        # メモリバッファを交換する
+        append!(env.urns[caller], env.buffers[called])
+        env.urn_sizes[caller] += env.nu_plus_ones[called]
+        env.total_urn_size += env.nu_plus_ones[called]
 
-    append!(env.urns[called], env.buffers[caller])
-    env.urn_sizes[called] += env.nu_plus_ones[caller]
-    env.total_urn_size += env.nu_plus_ones[caller]
+        append!(env.urns[called], env.buffers[caller])
+        env.urn_sizes[called] += env.nu_plus_ones[caller]
+        env.total_urn_size += env.nu_plus_ones[caller]
 
-    # メモリバッファを更新する
-    if env.who_update_buffer ∈ [:caller, :both]
-        env.strategies[caller](env, caller)
-    end
-    if env.who_update_buffer ∈ [:called, :both]
-        env.strategies[called](env, called)
+        # メモリバッファを更新する
+        if env.who_update_buffer ∈ [:caller, :both]
+            env.strategies[caller](env, caller)
+        end
+        if env.who_update_buffer ∈ [:called, :both]
+            env.strategies[called](env, called)
+        end
     end
     ##### <<< Model Rule (4) #####
 
