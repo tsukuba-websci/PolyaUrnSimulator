@@ -177,7 +177,7 @@ function step!(env::Environment)
     ##### <<< Model Rule (3) #####
 
     ##### Model Rule (4) >>> #####
-    if (caller, called) ∈ env.history || (called, caller) ∈ env.history
+    if !((caller, called) ∈ env.history) && !((called, caller) ∈ env.history)
         # メモリバッファを交換する
         append!(env.urns[caller], env.buffers[called])
         env.urn_sizes[caller] += env.nu_plus_ones[called]
