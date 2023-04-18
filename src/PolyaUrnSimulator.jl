@@ -138,8 +138,6 @@ function step!(env::Environment)
 
     "アクションを起こされる終点のエージェント"
     called::Int = get_called(env, caller)
-
-    append!(env.history, [(caller, called)])
     ##### <<< Model Rule (2) #####
 
     ##### Model Rule (5) >>> #####
@@ -196,6 +194,8 @@ function step!(env::Environment)
         end
     end
     ##### <<< Model Rule (4) #####
+
+    append!(env.history, [(caller, called)])
 
 end
 
