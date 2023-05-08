@@ -1,0 +1,16 @@
+name: Julia Unit Test
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1åå
+        with:
+          version: "1.8.5"
+      - uses: julia-actions/julia-buildpkg@latest
+      - run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
+      - run: julia --project=. -e 'using Pkg; Pkg.test()'
