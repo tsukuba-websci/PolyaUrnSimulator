@@ -205,10 +205,12 @@ function poppush!(v::Vector{T}, e::T) where {T}
 end
 
 function ssw_strategy!(env::Environment, aid::Int)
-    _last::Tuple{Int,Int} = last(env.history)
-    exchanged = _last[1] == aid ? _last[2] : _last[1]
-    if !(exchanged in env.buffers[aid])
-        poppush!(env.buffers[aid], exchanged)
+    if length(env.history) > 0
+        _last::Tuple{Int,Int} = last(env.history)
+        exchanged = _last[1] == aid ? _last[2] : _last[1]
+        if !(exchanged in env.buffers[aid])
+            poppush!(env.buffers[aid], exchanged)
+        end
     end
 end
 
