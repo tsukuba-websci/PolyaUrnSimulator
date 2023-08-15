@@ -164,18 +164,19 @@ function step!(env::Environment)
     end
     ##### <<< Model Rule (5) #####
 
-    ##### Model Rule (3) >>> #####
-    append!(env.urns[caller], noreffill(called, env.rhos[caller]))
-    env.urn_sizes[caller] += env.rhos[caller]
-    env.total_urn_size += env.rhos[caller]
-
-    append!(env.urns[called], noreffill(caller, env.rhos[called]))
-    env.urn_sizes[called] += env.rhos[called]
-    env.total_urn_size += env.rhos[called]
-    ##### <<< Model Rule (3) #####
-
     ##### Model Rule (4) >>> #####
     if !((caller, called) ∈ env.history) && !((called, caller) ∈ env.history)
+
+        # If the strategy is WSW, the memory buffer should be calculated before the exchange
+        if (env.strategies[caller] == wsw_strategy!) & (env.strategies[called] == wsw_strategy!) # if it is the wsw_strategy
+            if env.who_update_buffer ∈ [:caller, :both]
+                    env.strategies[caller](env, caller)
+            end
+            if env.who_update_buffer ∈ [:called, :both]
+                    env.strategies[called](env, called)
+            end
+        end
+
         # メモリバッファを交換する
         append!(env.urns[caller], env.buffers[called])
         env.urn_sizes[caller] += env.nu_plus_ones[called]
@@ -185,15 +186,27 @@ function step!(env::Environment)
         env.urn_sizes[called] += env.nu_plus_ones[caller]
         env.total_urn_size += env.nu_plus_ones[caller]
 
-        # メモリバッファを更新する
-        if env.who_update_buffer ∈ [:caller, :both]
-            env.strategies[caller](env, caller)
-        end
-        if env.who_update_buffer ∈ [:called, :both]
-            env.strategies[called](env, called)
+        # If the strategy is SSW, the memory buffer should be updated after each interaction
+        if (env.strategies[caller] == ssw_strategy!) & (env.strategies[called] == ssw_strategy!)
+            if env.who_update_buffer ∈ [:caller, :both]
+                env.strategies[caller](env, caller)
+            end
+            if env.who_update_buffer ∈ [:called, :both]
+                env.strategies[called](env, called)
+            end
         end
     end
     ##### <<< Model Rule (4) #####
+
+    ##### Model Rule (3) >>> #####
+    append!(env.urns[caller], noreffill(called, env.rhos[caller]))
+    env.urn_sizes[caller] += env.rhos[caller]
+    env.total_urn_size += env.rhos[caller]
+
+    append!(env.urns[called], noreffill(caller, env.rhos[called]))
+    env.urn_sizes[called] += env.rhos[called]
+    env.total_urn_size += env.rhos[called]
+    ##### <<< Model Rule (3) #####
 
     append!(env.history, [(caller, called)])
 
