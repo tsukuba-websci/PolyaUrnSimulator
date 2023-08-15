@@ -34,7 +34,6 @@ mutable struct Environment
 
     # 環境の振る舞い
     get_caller::Function
-    get_called::Function
     who_update_buffer
 end
 
@@ -47,7 +46,7 @@ end
 - `get_caller::Function{Environment -> Int}` : 起点エージェントを選択する挙動をデフォルトから変更する
 - `who_update_buffer::Symbol` : 各ステップで誰がバッファを更新するか定義 (`:both` (デフォルト) or `:caller` or `:called`) 
 """
-function Environment(; get_caller=get_caller, get_called=get_called,who_update_buffer::Symbol=:both)
+function Environment(; get_caller=get_caller,who_update_buffer::Symbol=:both)
     begin
         if !(who_update_buffer ∈ [:both, :caller, :called])
             throw(ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです"))
@@ -64,7 +63,6 @@ function Environment(; get_caller=get_caller, get_called=get_called,who_update_b
             [], # strategies
             [], # history
             get_caller,
-            get_called,
             who_update_buffer,
         )
     end
@@ -139,7 +137,7 @@ function step!(env::Environment)
     caller::Int = env.get_caller(env)
 
     "アクションを起こされる終点のエージェント"
-    called::Int = env.get_called(env, caller)
+    called::Int = get_called(env, caller)
     ##### <<< Model Rule (2) #####
 
     ##### Model Rule (5) >>> #####
