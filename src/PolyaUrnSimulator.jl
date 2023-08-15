@@ -187,6 +187,16 @@ function step!(env::Environment)
         append!(env.urns[called], env.buffers[caller])
         env.urn_sizes[called] += env.nu_plus_ones[caller]
         env.total_urn_size += env.nu_plus_ones[caller]
+
+        # If the strategy is SSW, the memory buffer should be updated after each interaction
+        if (env.strategies[caller] == ssw_strategy!) & (env.strategies[called] == ssw_strategy!)
+            if env.who_update_buffer ∈ [:caller, :both]
+                env.strategies[caller](env, caller)
+            end
+            if env.who_update_buffer ∈ [:called, :both]
+                env.strategies[called](env, called)
+            end
+        end
     end
     ##### <<< Model Rule (4) #####
 
@@ -199,16 +209,6 @@ function step!(env::Environment)
     env.urn_sizes[called] += env.rhos[called]
     env.total_urn_size += env.rhos[called]
     ##### <<< Model Rule (3) #####
-
-    # If the strategy is SSW, the memory buffer should be updated after each interaction
-    if (env.strategies[caller] == ssw_strategy!) & (env.strategies[called] == ssw_strategy!)
-        if env.who_update_buffer ∈ [:caller, :both]
-            env.strategies[caller](env, caller)
-        end
-        if env.who_update_buffer ∈ [:called, :both]
-            env.strategies[called](env, called)
-        end
-    end
 
     append!(env.history, [(caller, called)])
 
