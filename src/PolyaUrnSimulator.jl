@@ -34,6 +34,7 @@ mutable struct Environment
 
     # 環境の振る舞い
     get_caller::Function
+    get_called::Function
     who_update_buffer
 end
 
@@ -46,7 +47,7 @@ end
 - `get_caller::Function{Environment -> Int}` : 起点エージェントを選択する挙動をデフォルトから変更する
 - `who_update_buffer::Symbol` : 各ステップで誰がバッファを更新するか定義 (`:both` (デフォルト) or `:caller` or `:called`) 
 """
-function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
+function Environment(; get_caller=get_caller, get_called=get_called,who_update_buffer::Symbol=:both)
     begin
         if !(who_update_buffer ∈ [:both, :caller, :called])
             throw(ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです"))
@@ -63,6 +64,7 @@ function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
             [], # strategies
             [], # history
             get_caller,
+            get_called,
             who_update_buffer,
         )
     end
@@ -137,7 +139,7 @@ function step!(env::Environment)
     caller::Int = env.get_caller(env)
 
     "アクションを起こされる終点のエージェント"
-    called::Int = get_called(env, caller)
+    called::Int = env.get_called(env, caller)
     ##### <<< Model Rule (2) #####
 
     ##### Model Rule (5) >>> #####
@@ -164,6 +166,30 @@ function step!(env::Environment)
     end
     ##### <<< Model Rule (5) #####
 
+    ##### Model Rule (4) >>> #####
+    if !((caller, called) ∈ env.history) && !((called, caller) ∈ env.history)
+
+        # If the strategy is WSW, the memory buffer should be calculated before the exchange
+        if (env.strategies[caller] == wsw_strategy!) & (env.strategies[called] == wsw_strategy!) # if it is the wsw_strategy
+            if env.who_update_buffer ∈ [:caller, :both]
+                    env.strategies[caller](env, caller)
+            end
+            if env.who_update_buffer ∈ [:called, :both]
+                    env.strategies[called](env, called)
+            end
+        end
+
+        # メモリバッファを交換する
+        append!(env.urns[caller], env.buffers[called])
+        env.urn_sizes[caller] += env.nu_plus_ones[called]
+        env.total_urn_size += env.nu_plus_ones[called]
+
+        append!(env.urns[called], env.buffers[caller])
+        env.urn_sizes[called] += env.nu_plus_ones[caller]
+        env.total_urn_size += env.nu_plus_ones[caller]
+    end
+    ##### <<< Model Rule (4) #####
+
     ##### Model Rule (3) >>> #####
     append!(env.urns[caller], noreffill(called, env.rhos[caller]))
     env.urn_sizes[caller] += env.rhos[caller]
@@ -174,18 +200,8 @@ function step!(env::Environment)
     env.total_urn_size += env.rhos[called]
     ##### <<< Model Rule (3) #####
 
-    ##### Model Rule (4) >>> #####
-    if !((caller, called) ∈ env.history) && !((called, caller) ∈ env.history)
-        # メモリバッファを交換する
-        append!(env.urns[caller], env.buffers[called])
-        env.urn_sizes[caller] += env.nu_plus_ones[called]
-        env.total_urn_size += env.nu_plus_ones[called]
-
-        append!(env.urns[called], env.buffers[caller])
-        env.urn_sizes[called] += env.nu_plus_ones[caller]
-        env.total_urn_size += env.nu_plus_ones[caller]
-
-        # メモリバッファを更新する
+    # If the strategy is SSW, the memory buffer should be updated after each interaction
+    if (env.strategies[caller] == ssw_strategy!) & (env.strategies[called] == ssw_strategy!)
         if env.who_update_buffer ∈ [:caller, :both]
             env.strategies[caller](env, caller)
         end
@@ -193,7 +209,6 @@ function step!(env::Environment)
             env.strategies[called](env, called)
         end
     end
-    ##### <<< Model Rule (4) #####
 
     append!(env.history, [(caller, called)])
 

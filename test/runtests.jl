@@ -134,3 +134,27 @@ end
         @test all(h -> h[1] == 2, env.history)
     end
 end
+
+@testset "ASW is asymmetric. ASWは非対称です." begin
+    strategy = ssw_strategy!
+    nu = 5
+    init_agents = [Agent(1, nu, strategy), Agent(1, nu, strategy)]
+
+    _get_caller = env::Environment -> 1
+    _get_called = (env::Environment, caller::Int) -> 2 
+
+    env = Environment(; get_caller=_get_caller, get_called=_get_called, who_update_buffer=:caller)
+    init!(env, init_agents)
+
+    step!(env)
+
+    caller_memory_buffer_before = copy(env.buffers[1])
+    callee_memory_buffer_before = copy(env.buffers[2])
+    step!(env)
+    caller_memory_buffer_after = env.buffers[1]
+    callee_memory_buffer_after = env.buffers[2]
+
+    @test caller_memory_buffer_before != caller_memory_buffer_after
+    @test callee_memory_buffer_before == callee_memory_buffer_after
+
+end
