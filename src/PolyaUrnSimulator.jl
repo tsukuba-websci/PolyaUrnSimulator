@@ -46,7 +46,7 @@ end
 - `get_caller::Function{Environment -> Int}` : 起点エージェントを選択する挙動をデフォルトから変更する
 - `who_update_buffer::Symbol` : 各ステップで誰がバッファを更新するか定義 (`:both` (デフォルト) or `:caller` or `:called`) 
 """
-function Environment(; get_caller=get_caller,who_update_buffer::Symbol=:both)
+function Environment(; get_caller=get_caller, who_update_buffer::Symbol=:both)
     begin
         if !(who_update_buffer ∈ [:both, :caller, :called])
             throw(ArgumentError("who_update_bufferは `:both` `:caller` `:called` のいずれかです"))
